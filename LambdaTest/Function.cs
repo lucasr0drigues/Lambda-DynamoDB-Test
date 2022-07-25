@@ -29,10 +29,9 @@ public class Function
         return request.RequestContext.Http.Method.ToUpper() switch
         {
             "GET" => await HandleGetRequest(request),
-            "POST" => await HandlePostRequest(request)
-
-        };
-        
+            "POST" => await HandlePostRequest(request),
+            "DELETE" => await HandleDeleteRequest(request)
+        };        
     }
 
     private async Task<APIGatewayHttpApiV2ProxyResponse> HandleGetRequest(APIGatewayHttpApiV2ProxyRequest request)
@@ -58,15 +57,24 @@ public class Function
         var user = JsonSerializer.Deserialize<User>(request.Body);
         if (user == null)
         {
-            return BadResponse("User not found");
+            return BadResponse("Invalid user details");
         }
 
         await _dynamoDbContext.SaveAsync(user);
 
-        return new APIGatewayHttpApiV2ProxyResponse()
+        return OkResponse();
+    }
+
+    private async Task<APIGatewayHttpApiV2ProxyResponse> HandleDeleteRequest(APIGatewayHttpApiV2ProxyRequest request)
+    {
+        request.PathParameters.TryGetValue("userId", out var userId);
+        if (userId != null)
         {
-            StatusCode = 200
-        };
+            await _dynamoDbContext.DeleteAsync<User>(userId);
+            return OkResponse();
+        }
+
+        return BadResponse("Invalid user Id");        
     }
 
     private static APIGatewayHttpApiV2ProxyResponse BadResponse(string message)
@@ -75,6 +83,14 @@ public class Function
         {
             Body = message,
             StatusCode = 404
+        };
+    }
+
+    private static APIGatewayHttpApiV2ProxyResponse OkResponse()
+    {
+        return new APIGatewayHttpApiV2ProxyResponse()
+        {
+            StatusCode = 200
         };
     }
 }
